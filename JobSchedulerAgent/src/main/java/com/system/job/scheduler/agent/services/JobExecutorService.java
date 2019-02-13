@@ -3,15 +3,19 @@ package com.system.job.scheduler.agent.services;
 import com.system.job.scheduler.agent.model.ExecutionResponse;
 import com.system.job.scheduler.agent.model.JobDetails;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -21,6 +25,9 @@ public class JobExecutorService {
 
 	@Autowired
 	RestTemplate restTemplate;
+
+	@Autowired
+	Environment env;
 
 	public ExecutionResponse executeCommand(JobDetails jobDetails) {
 
@@ -86,12 +93,29 @@ public class JobExecutorService {
 		CompletableFuture.supplyAsync(()->{
 			return executeCommand(jobDetails);
 		}).thenAcceptAsync(res->{
-			HttpHeaders headers = new HttpHeaders();
-			headers.setContentType(MediaType.APPLICATION_JSON);
+			try {
+				HttpHeaders headers = new HttpHeaders();
+				headers.setContentType(MediaType.APPLICATION_JSON);
 
-			HttpEntity<ExecutionResponse> request = new HttpEntity<>(res, headers);
+				HttpEntity<ExecutionResponse> request = new HttpEntity<>(res, headers);
 
-			
+				ResponseEntity<String> response = restTemplate.postForEntity(new URI(env.getProperty("host.url")),request,String.class);
+
+				if(response.getStatusCode().isError()){
+
+					Thread.sleep(10*1000L);
+
+					//Retry sending response
+					response = restTemplate.postForEntity(new URI(env.getProperty("host.url")),request,String.class);
+
+					System.out.println(response.getStatusCode()+" | "+response.getStatusCode().getReasonPhrase()+" | "+ response.getBody());
+
+				}
+			} catch (URISyntaxException | InterruptedException e) {
+				e.printStackTrace();
+			}
+
+
 		});
 
 	}

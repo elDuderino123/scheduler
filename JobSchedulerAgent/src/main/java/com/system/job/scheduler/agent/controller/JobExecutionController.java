@@ -28,4 +28,19 @@ public class JobExecutionController {
 			throw e;
 		}
 	}
+
+	@RequestMapping(value="/api/v1/submit/job",method=RequestMethod.POST)
+	@ResponseBody
+	public void executeAsync(@RequestBody JobDetails jobDetails) {
+
+		try {
+
+			jobExecutorService.executeCommandAsync(jobDetails);
+
+
+
+		}catch(Exception e){
+			throw e;
+		}
+	}
 }
