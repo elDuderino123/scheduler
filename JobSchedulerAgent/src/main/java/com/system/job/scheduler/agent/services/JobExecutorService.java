@@ -77,10 +77,20 @@ public class JobExecutorService {
 			response.withResponseCode(-1);
 			e.printStackTrace();
 
-			//TODO
-			//Attempt retry up-to retry count
-			//If retry fails attempt to clean up
+				//Execution failed
 
+				//Attempt retry
+				if(jobDetails.getRetryCount() > 0){
+					jobDetails.withRetryCount(jobDetails.getRetryCount()-1);
+					return executeCommand(jobDetails);
+				}else{
+					//Attempt recovery
+					//Its imperative that input args of the recovery arg is same as actual command
+					jobDetails.withScriptExecutionCmd(jobDetails.getRecoveryCommand());
+					jobDetails.withRetryCount(0);
+					return executeCommand(jobDetails);
+
+				}
 		}
 		
 		return response;
@@ -94,6 +104,25 @@ public class JobExecutorService {
 			return executeCommand(jobDetails);
 		}).thenAcceptAsync(res->{
 			try {
+
+				if(res.getResponseCode() > 0){
+					//Execution failed
+
+					//Attempt retry
+					if(jobDetails.getRetryCount() > 0){
+						jobDetails.withRetryCount(jobDetails.getRetryCount()-1);
+						executeCommandAsync(jobDetails);
+						return;
+					}else{
+						//Attempt recovery
+						//Its imperative that input args of the recovery arg is same as actual command
+						jobDetails.withScriptExecutionCmd(jobDetails.getRecoveryCommand());
+						jobDetails.withRetryCount(0);
+						executeCommandAsync(jobDetails);
+						return ;
+
+					}
+				}
 				HttpHeaders headers = new HttpHeaders();
 				headers.setContentType(MediaType.APPLICATION_JSON);
 
